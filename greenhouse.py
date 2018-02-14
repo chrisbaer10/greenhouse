@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import sys, os, datetime, argparse, ConfigParser, collections, time
+import sys, os, datetime, argparse, ConfigParser, collections, time, json
 from time import sleep
 from w1thermsensor import W1ThermSensor
 import RPi.GPIO as GPIO
@@ -23,7 +23,7 @@ I = .1
 D = 10
 B = 0
 c={}
-pit_temp = 0
+gh_temp = 0
 meat1_temp = 0
 meat2_temp = 0
 target_temp = 0
@@ -61,7 +61,7 @@ def read_config():
 	config.read('greenhouse.cfg')
 	con = collections.namedtuple('config', ['pit', 'meat1', 'meat2', 'set_temp', 'alert_min_temp', 'alert_max_temp', 'alert_max_interval_sec', 'plot_max_interval_sec'])
 	global c
-	c = con(config.get('Sensors', 'pit_sensorid'), config.get('Sensors', 'meat1_sensorid'), config.get('Sensors', 'meat2_sensorid'), config.get('Configuration', 'set_temp'), config.get('Configuration', 'alert_min_temp'), config.get('Configuration', 'alert_max_temp'), config.get('Configuration', 'alert_max_interval_sec'), config.get('Configuration', 'plot_max_interval_sec'))
+	c = con(config.get('Sensors', 'gh_sensorid'), config.get('Sensors', 'meat1_sensorid'), config.get('Sensors', 'meat2_sensorid'), config.get('Configuration', 'set_temp'), config.get('Configuration', 'alert_min_temp'), config.get('Configuration', 'alert_max_temp'), config.get('Configuration', 'alert_max_interval_sec'), config.get('Configuration', 'plot_max_interval_sec'))
 
 def getos(name):
 	return os.getenv(name)
@@ -96,7 +96,7 @@ def create_plot():
 	print "Creating plot from " + timestr + ".csv"
 	# TODO replace pandas with something else... takes a long time to download 
 	df = pd.read_csv(timestr+'.csv')
-	trace1 = go.Scattergl(x = df['date'], y = df['pit_temp'], name='Greenhouse Temp (F)')
+	trace1 = go.Scattergl(x = df['date'], y = df['gh_temp'], name='Greenhouse Temp (F)')
 	trace2 = go.Scattergl(x = df['date'], y = df['meat1_temp'], name='Meat Temp (F)')
 	trace3 = go.Scattergl(x = df['date'], y = df['meat2_temp'], name='Meat Temp (F)')
 	trace4 = go.Scattergl(x = df['date'], y = df['fanSpeed'], name='Fan Speed %')
@@ -111,18 +111,18 @@ def create_plot():
 		print "Unable to create plot...", detail
 
 def loop():
-	global P,I,D,B,pit_temp,meat1_temp,meat2_temp,current_temp,target_temp,count,fanSpeed,accumulatedError,sum,tempRangeMet,alertLastSent,f,timestr,plotLastSent,plotted,now
+	global P,I,D,B,gh_temp,meat1_temp,meat2_temp,current_temp,target_temp,count,fanSpeed,accumulatedError,sum,tempRangeMet,alertLastSent,f,timestr,plotLastSent,plotted,now
 	f = open(timestr+'.csv', 'w')
-	f.write('date' + ',' + 'pit_temp' + ',' + 'meat1_temp' + ',' + 'meat2_temp' + ',' + 'fanSpeed' + '\n')
+	f.write('date' + ',' + 'gh_temp' + ',' + 'meat1_temp' + ',' + 'meat2_temp' + ',' + 'fanSpeed' + '\n')
 	f.close()
 	with open(timestr+'.csv', 'a') as csv_file:
 		while True:
 			now = datetime.datetime.now()
 			date = now.strftime(fmt)
-			pit_temp = str(get_temp(c.pit))
+			gh_temp = str(get_temp(c.pit))
 			meat1_temp = str(get_temp(c.meat1))
 			meat2_temp = str(get_temp(c.meat2))
-			print ("Current Greenhouse Temperature: " + pit_temp)
+			print ("Current Greenhouse Temperature: " + gh_temp)
 			print ("Current Meat1 Temperature: " + meat1_temp)
 			print ("Current Meat2 Temperature: " + meat2_temp)
 			print
@@ -162,9 +162,12 @@ def loop():
 				plotFanSpeed = fanSpeed
 				p.ChangeDutyCycle(fanSpeed)
 			print "Fan Speed: %d" % fanSpeed
-			f2 = open('/var/www/html/index.html', 'w')
-			f2.write('<html>' + date + ',' + pit_temp + ',' + meat1_temp + ',' + meat2_temp + ',' + str(plotFanSpeed) + '\n' + '</html>')
-			csv_file.write(date + ',' + pit_temp + ',' + meat1_temp + ',' + meat2_temp + ',' + str(plotFanSpeed) + '\n')
+                        data = {}
+                        data['date'] = date
+                        data['greenhouse_temp'] = gh_temp
+                        with open('/var/www/html/index.html', 'w') as outfile:
+                            json.dump(data, outfile)
+			csv_file.write(date + ',' + gh_temp + ',' + meat1_temp + ',' + meat2_temp + ',' + str(plotFanSpeed) + '\n')
 			csv_file.flush()
 			plot_diff_sec = (now-plotLastSent).total_seconds()
 			if int(plot_diff_sec) > int(c.plot_max_interval_sec) or not plotted:
