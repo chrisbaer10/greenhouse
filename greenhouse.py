@@ -40,7 +40,9 @@ timestr = time.strftime("%Y%m%d-%H%M%S")
 plotted = False
 
 def send_push(message, title):
-	Client().send_message(message, title=title)
+	print "Sending push notification message " + message + " title " + title
+#TODO fix this
+#	Client().send_message(message, title=title)
 def setup_args():
 	parser = argparse.ArgumentParser()
 	parser.add_argument('-v', '--verbose', dest='verbose', action='store_true')
@@ -166,7 +168,8 @@ def loop():
                         data['date'] = date
                         data['greenhouse_temp'] = gh_temp
                         with open('/var/www/html/index.html', 'w') as outfile:
-                            json.dump(data, outfile)
+                        	json.dump(data, outfile)
+			outfile.close()
 			csv_file.write(date + ',' + gh_temp + ',' + meat1_temp + ',' + meat2_temp + ',' + str(plotFanSpeed) + '\n')
 			csv_file.flush()
 			plot_diff_sec = (now-plotLastSent).total_seconds()
