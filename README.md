@@ -1,5 +1,3 @@
-# bbq-controller
-
 Installation Instructions:
 
 Use PiBakery to write an SD card with the following startup properties:
